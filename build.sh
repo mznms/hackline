@@ -3,6 +3,8 @@
 # HackLine Font Build Script
 # Usage: ./build.sh [--nerd]
 #
+# Uses uv for Python dependency management
+#
 
 set -e
 
@@ -19,17 +21,17 @@ echo -e "${GREEN}============================================================${N
 echo -e "${GREEN}HackLine Font Build Script${NC}"
 echo -e "${GREEN}============================================================${NC}"
 
-# Check dependencies
+# Check uv is installed
 echo -e "\n${YELLOW}[1/5] Checking dependencies...${NC}"
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: python3 is required${NC}"
+if ! command -v uv &> /dev/null; then
+    echo -e "${RED}Error: uv is required${NC}"
+    echo -e "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
-if ! python3 -c "from fontTools import ttLib" &> /dev/null; then
-    echo -e "${YELLOW}Installing fonttools...${NC}"
-    pip3 install fonttools
-fi
+# Setup virtual environment and install dependencies
+echo "Setting up Python environment with uv..."
+uv sync
 echo -e "${GREEN}✓ Dependencies OK${NC}"
 
 # Download Hack font
@@ -57,21 +59,21 @@ fi
 
 # Build HackLine fonts
 echo -e "\n${YELLOW}[4/5] Building HackLine fonts...${NC}"
-python3 merge_fonts.py
+uv run python merge_fonts.py
 echo -e "${GREEN}✓ HackLine fonts generated${NC}"
 
 # Build Nerd Font version (optional)
 if [ "$1" = "--nerd" ] || [ "$1" = "-n" ]; then
     echo -e "\n${YELLOW}[5/5] Building Nerd Font version...${NC}"
-    
+
     if [ ! -d "HackNerdFont" ]; then
         echo "Downloading HackNerdFont..."
         curl -L -o HackNerdFont.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/Hack.zip
         unzip -o HackNerdFont.zip -d HackNerdFont
         rm HackNerdFont.zip
     fi
-    
-    python3 add_nerd_glyphs.py
+
+    uv run python add_nerd_glyphs.py
     echo -e "${GREEN}✓ Nerd Font version generated${NC}"
 else
     echo -e "\n${YELLOW}[5/5] Skipping Nerd Font version (use --nerd to enable)${NC}"
