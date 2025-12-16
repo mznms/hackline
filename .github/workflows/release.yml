@@ -10,45 +10,68 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.11'
-      
+          enable-cache: true
+
       - name: Install dependencies
-        run: pip install fonttools
-      
+        run: uv sync
+
       - name: Download source fonts
         run: |
-          # Hack font
-          curl -L -o Hack.zip https://github.com/source-foundry/Hack/releases/download/v3.003/Hack-v3.003-ttf.zip
-          unzip Hack.zip -d hack_font
-          
+          # Hack source (for building with slashed zero)
+          curl -L -o hack-source.zip https://github.com/source-foundry/Hack/archive/refs/tags/v3.003.zip
+          unzip hack-source.zip -d hack_source_tmp
+          mv hack_source_tmp/Hack-3.003 hack_source
+
+          # alt-hack slashed zero glyphs
+          mkdir -p alt_hack_glyphs
+          for style in regular bold italic bolditalic; do
+            mkdir -p "alt_hack_glyphs/${style}"
+            curl -L -o "alt_hack_glyphs/${style}/zero.glif" \
+              "https://raw.githubusercontent.com/source-foundry/alt-hack/master/glyphs/u0030-forwardslash/${style}/zero.glif"
+          done
+
           # LINE Seed JP font
           curl -L -o LINE_Seed_JP.zip "https://seed.line.me/src/images/fonts/LINE_Seed_JP.zip"
           mkdir -p line_seed_font
           unzip LINE_Seed_JP.zip -d line_seed_font
-          
+
           # HackNerdFont (for Nerd Font glyphs)
           curl -L -o HackNerdFont.zip https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/Hack.zip
           unzip HackNerdFont.zip -d HackNerdFont
-      
+
+      - name: Apply slashed zero glyphs
+        run: |
+          cp "alt_hack_glyphs/regular/zero.glif" "hack_source/source/Hack-Regular.ufo/glyphs/zero.glif"
+          cp "alt_hack_glyphs/bold/zero.glif" "hack_source/source/Hack-Bold.ufo/glyphs/zero.glif"
+          cp "alt_hack_glyphs/italic/zero.glif" "hack_source/source/Hack-Italic.ufo/glyphs/zero.glif"
+          cp "alt_hack_glyphs/bolditalic/zero.glif" "hack_source/source/Hack-BoldItalic.ufo/glyphs/zero.glif"
+
+      - name: Build Hack TTF with slashed zero
+        run: |
+          mkdir -p hack_font/ttf
+          for style in Regular Bold; do
+            uv run fontmake -u "hack_source/source/Hack-${style}.ufo" -o ttf --output-dir hack_font/ttf
+          done
+
       - name: Build fonts
         run: |
-          python3 merge_fonts.py
-          python3 add_nerd_glyphs.py
-      
+          uv run python merge_fonts.py
+          uv run python add_nerd_glyphs.py
+
       - name: Create release archives
         run: |
           cd build
           zip -r ../HackLine-${{ github.ref_name }}.zip HackLine-Regular.ttf HackLine-Bold.ttf
           zip -r ../HackLineNF-${{ github.ref_name }}.zip HackLineNF-Regular.ttf HackLineNF-Bold.ttf
           zip -r ../HackLine-All-${{ github.ref_name }}.zip *.ttf
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
