@@ -7,8 +7,8 @@ Hack と LINE Seed JP を合成したプログラミングフォント。
 
 - **ラテン文字**: Hack フォント由来（プログラミング向け等幅フォント）
 - **日本語文字**: LINE Seed JP 由来（ひらがな、カタカナ、漢字 約7,100文字）
-- **文字幅比率**: ラテン文字:全角日本語 = 1:2（半角カナは1倍幅）
 - **Nerd Font対応**: アイコンフォント（Devicons, Codicons, FontLogos等）
+- **2種類の幅設定**: HackLine（自動スケール）と HackLine12（1:2比率）
 
 | ![Sample](docs/HackLineSample.png) | ![Sample](docs/HackLineSampleClang.png) |
 |---|---|
@@ -30,10 +30,13 @@ Hack と LINE Seed JP を合成したプログラミングフォント。
 
 | フォント名 | 説明 |
 |-----------|------|
-| **HackLine-Regular/Bold** | 基本フォント。ラテン文字 + 日本語 |
-| **HackLineNF-Regular/Bold** | Nerd Font版。上記 + アイコン (Devicons, Codicons, FontLogos, Octicons 等) |
+| **HackLine-Regular/Bold** | 基本フォント。ラテン文字 + 日本語（自動スケール幅） |
+| **HackLine12-Regular/Bold** | 1:2比率版。全角日本語がラテン文字の2倍幅（半角カナは1倍幅） |
+| **HackLineNF-Regular/Bold** | Nerd Font版。HackLine + アイコン (Devicons, Codicons, FontLogos, Octicons 等) |
 
 > **💡 Tip**: ターミナルやエディタでアイコンを表示したい場合は **NF版** を使用してください。
+>
+> **💡 Tip**: 全角・半角の幅を1:2にしたい場合は **HackLine12** を使用してください。
 
 ## ビルド方法
 

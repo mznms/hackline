@@ -17,8 +17,13 @@ HACK_BOLD = "hack_font/ttf/Hack-Bold.ttf"
 LINE_SEED_JP_REGULAR = "line_seed_font/LINESeedJP_20241105/Desktop/TTF/LINESeedJP_TTF_Rg.ttf"
 LINE_SEED_JP_BOLD = "line_seed_font/LINESeedJP_20241105/Desktop/TTF/LINESeedJP_TTF_Bd.ttf"
 
+# Output paths for standard version
 OUTPUT_REGULAR = "build/HackLine-Regular.ttf"
 OUTPUT_BOLD = "build/HackLine-Bold.ttf"
+
+# Output paths for 1:2 width ratio version
+OUTPUT_12_REGULAR = "build/HackLine12-Regular.ttf"
+OUTPUT_12_BOLD = "build/HackLine12-Bold.ttf"
 
 # Japanese Unicode ranges (Hiragana, Katakana, CJK, etc.)
 JAPANESE_RANGES = [
@@ -71,8 +76,16 @@ def scale_glyph(glyph, scale, glyf_table):
     return glyph
 
 
-def merge_fonts(hack_path, jp_path, output_path):
-    """Merge Japanese glyphs from LINE Seed JP into Hack font."""
+def merge_fonts(hack_path, jp_path, output_path, font_name="HackLine", width_ratio=None):
+    """Merge Japanese glyphs from LINE Seed JP into Hack font.
+
+    Args:
+        hack_path: Path to Hack font file
+        jp_path: Path to LINE Seed JP font file
+        output_path: Output path for merged font
+        font_name: Name for the output font (default: HackLine)
+        width_ratio: Width ratio for fullwidth characters (None=auto scale, 2=1:2 ratio)
+    """
     print(f"Loading {hack_path}...")
     hack = TTFont(hack_path)
 
@@ -99,9 +112,13 @@ def merge_fonts(hack_path, jp_path, output_path):
         print("Error: Could not determine Hack's standard character width")
         sys.exit(1)
 
-    # Japanese characters should be 2x the width of Latin characters
-    target_jp_width = hack_standard_width * 2
-    print(f"Hack standard width: {hack_standard_width}, Target Japanese width: {target_jp_width}")
+    # Calculate target width for fullwidth characters
+    if width_ratio:
+        target_jp_width = hack_standard_width * width_ratio
+        print(f"Hack standard width: {hack_standard_width}, Target fullwidth: {target_jp_width} (1:{width_ratio})")
+    else:
+        target_jp_width = None
+        print(f"Hack standard width: {hack_standard_width}, Using auto-scaled widths")
     
     # Get cmap tables
     hack_cmap = hack.getBestCmap()
@@ -149,7 +166,7 @@ def merge_fonts(hack_path, jp_path, output_path):
             # Add to cmap
             hack_cmap[codepoint] = new_glyph_name
             
-            # Set Japanese character width based on original width
+            # Set horizontal metrics
             if jp_glyph_name in jp_font['hmtx'].metrics:
                 jp_width, jp_lsb = jp_font['hmtx'].metrics[jp_glyph_name]
 
@@ -157,20 +174,23 @@ def merge_fonts(hack_path, jp_path, output_path):
                 scaled_width = int(jp_width * scale)
                 scaled_lsb = int(jp_lsb * scale)
 
-                # Determine target width based on original width
-                # LINE Seed JP uses 500 for halfwidth and 1000 for fullwidth
-                # Halfwidth (≈500) → 1x Hack width (1233)
-                # Fullwidth (≈1000) → 2x Hack width (2466)
-                if jp_width <= 600:  # Halfwidth character
-                    target_width = hack_standard_width
-                else:  # Fullwidth character
-                    target_width = target_jp_width
+                if width_ratio:
+                    # Use fixed width ratio (1:2 for HackLine12)
+                    # LINE Seed JP uses 500 for halfwidth and 1000 for fullwidth
+                    # Halfwidth (≈500) → 1x Hack width
+                    # Fullwidth (≈1000) → 2x Hack width
+                    if jp_width <= 600:  # Halfwidth character
+                        target_width = hack_standard_width
+                    else:  # Fullwidth character
+                        target_width = target_jp_width
 
-                # Calculate centered position
-                width_diff = target_width - scaled_width
-                centered_lsb = scaled_lsb + (width_diff // 2)
-
-                hack['hmtx'].metrics[new_glyph_name] = (target_width, centered_lsb)
+                    # Calculate centered position
+                    width_diff = target_width - scaled_width
+                    centered_lsb = scaled_lsb + (width_diff // 2)
+                    hack['hmtx'].metrics[new_glyph_name] = (target_width, centered_lsb)
+                else:
+                    # Use auto-scaled width (original HackLine behavior)
+                    hack['hmtx'].metrics[new_glyph_name] = (scaled_width, scaled_lsb)
             
             glyphs_copied += 1
             
@@ -192,7 +212,7 @@ def merge_fonts(hack_path, jp_path, output_path):
             if record.nameID in [1, 4, 6]:  # Family, Full, PostScript name
                 try:
                     old_name = record.toUnicode()
-                    new_name = old_name.replace("Hack", "HackLine")
+                    new_name = old_name.replace("Hack", font_name)
                     record.string = new_name.encode(record.getEncoding())
                 except:
                     pass
@@ -211,28 +231,47 @@ def main():
     print("=" * 60)
     print("HackLine Font Generator v3")
     print("=" * 60)
-    
+
     # Check input files
     if not os.path.exists(HACK_REGULAR):
         print(f"Error: {HACK_REGULAR} not found")
         sys.exit(1)
-    
+
     if not os.path.exists(LINE_SEED_JP_REGULAR):
         print(f"Error: {LINE_SEED_JP_REGULAR} not found")
         sys.exit(1)
-    
+
     # Create build directory
     os.makedirs("build", exist_ok=True)
-    
-    # Merge Regular
-    print("\n--- Generating Regular weight ---")
-    merge_fonts(HACK_REGULAR, LINE_SEED_JP_REGULAR, OUTPUT_REGULAR)
-    
-    # Merge Bold (if available)
+
+    # Generate standard HackLine (auto-scaled widths)
+    print("\n" + "=" * 60)
+    print("Generating HackLine (standard)")
+    print("=" * 60)
+
+    print("\n--- HackLine Regular ---")
+    merge_fonts(HACK_REGULAR, LINE_SEED_JP_REGULAR, OUTPUT_REGULAR,
+                font_name="HackLine", width_ratio=None)
+
     if os.path.exists(HACK_BOLD) and os.path.exists(LINE_SEED_JP_BOLD):
-        print("\n--- Generating Bold weight ---")
-        merge_fonts(HACK_BOLD, LINE_SEED_JP_BOLD, OUTPUT_BOLD)
-    
+        print("\n--- HackLine Bold ---")
+        merge_fonts(HACK_BOLD, LINE_SEED_JP_BOLD, OUTPUT_BOLD,
+                    font_name="HackLine", width_ratio=None)
+
+    # Generate HackLine12 (1:2 width ratio)
+    print("\n" + "=" * 60)
+    print("Generating HackLine12 (1:2 width ratio)")
+    print("=" * 60)
+
+    print("\n--- HackLine12 Regular ---")
+    merge_fonts(HACK_REGULAR, LINE_SEED_JP_REGULAR, OUTPUT_12_REGULAR,
+                font_name="HackLine12", width_ratio=2)
+
+    if os.path.exists(HACK_BOLD) and os.path.exists(LINE_SEED_JP_BOLD):
+        print("\n--- HackLine12 Bold ---")
+        merge_fonts(HACK_BOLD, LINE_SEED_JP_BOLD, OUTPUT_12_BOLD,
+                    font_name="HackLine12", width_ratio=2)
+
     print("\n" + "=" * 60)
     print("Done!")
     print("=" * 60)
