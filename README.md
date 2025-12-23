@@ -7,6 +7,7 @@ Hack と LINE Seed JP を合成したプログラミングフォント。
 
 - **ラテン文字**: Hack フォント由来（プログラミング向け等幅フォント）
 - **日本語文字**: LINE Seed JP 由来（ひらがな、カタカナ、漢字 約7,100文字）
+- **文字幅比率**: ラテン文字:全角日本語 = 1:2（半角カナは1倍幅）
 - **Nerd Font対応**: アイコンフォント（Devicons, Codicons, FontLogos等）
 
 | ![Sample](docs/HackLineSample.png) | ![Sample](docs/HackLineSampleClang.png) |

@@ -75,15 +75,33 @@ def merge_fonts(hack_path, jp_path, output_path):
     """Merge Japanese glyphs from LINE Seed JP into Hack font."""
     print(f"Loading {hack_path}...")
     hack = TTFont(hack_path)
-    
+
     print(f"Loading {jp_path}...")
     jp_font = TTFont(jp_path)
-    
+
     # Get unitsPerEm
     hack_upm = hack['head'].unitsPerEm
     jp_upm = jp_font['head'].unitsPerEm
     scale = hack_upm / jp_upm
     print(f"Hack unitsPerEm: {hack_upm}, LINE Seed JP unitsPerEm: {jp_upm}, scale: {scale:.4f}")
+
+    # Get Hack's standard character width (Latin characters are monospaced)
+    hack_cmap = hack.getBestCmap()
+    hack_standard_width = None
+    for test_cp in [0x41, 0x4D, 0x61, 0x6D]:  # A, M, a, m
+        if test_cp in hack_cmap:
+            glyph_name = hack_cmap[test_cp]
+            width, _ = hack['hmtx'].metrics[glyph_name]
+            hack_standard_width = width
+            break
+
+    if hack_standard_width is None:
+        print("Error: Could not determine Hack's standard character width")
+        sys.exit(1)
+
+    # Japanese characters should be 2x the width of Latin characters
+    target_jp_width = hack_standard_width * 2
+    print(f"Hack standard width: {hack_standard_width}, Target Japanese width: {target_jp_width}")
     
     # Get cmap tables
     hack_cmap = hack.getBestCmap()
@@ -131,10 +149,28 @@ def merge_fonts(hack_path, jp_path, output_path):
             # Add to cmap
             hack_cmap[codepoint] = new_glyph_name
             
-            # Scale and add hmtx (horizontal metrics)
+            # Set Japanese character width based on original width
             if jp_glyph_name in jp_font['hmtx'].metrics:
-                width, lsb = jp_font['hmtx'].metrics[jp_glyph_name]
-                hack['hmtx'].metrics[new_glyph_name] = (int(width * scale), int(lsb * scale))
+                jp_width, jp_lsb = jp_font['hmtx'].metrics[jp_glyph_name]
+
+                # Scale the glyph's original metrics
+                scaled_width = int(jp_width * scale)
+                scaled_lsb = int(jp_lsb * scale)
+
+                # Determine target width based on original width
+                # LINE Seed JP uses 500 for halfwidth and 1000 for fullwidth
+                # Halfwidth (≈500) → 1x Hack width (1233)
+                # Fullwidth (≈1000) → 2x Hack width (2466)
+                if jp_width <= 600:  # Halfwidth character
+                    target_width = hack_standard_width
+                else:  # Fullwidth character
+                    target_width = target_jp_width
+
+                # Calculate centered position
+                width_diff = target_width - scaled_width
+                centered_lsb = scaled_lsb + (width_diff // 2)
+
+                hack['hmtx'].metrics[new_glyph_name] = (target_width, centered_lsb)
             
             glyphs_copied += 1
             
